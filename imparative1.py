@@ -72,44 +72,85 @@ class SudokuGame:
         
         IMPERATIVE CONCEPTS DEMONSTRATED:
         1. State mutation: Modifies self.board directly
-        2. Imperative control: Explicit step-by-step commands
-        3. Shared state: Recursive calls share same mutable state
-        4. Side effects: Method changes object state
+        2. Imperative control: Explicit step-by-step commands (Loops)
+        3. Side effects: Method changes object state
         
         Modifies self.board directly (mutable state).
         callback: Optional function(board) called on each step for visualization
         """
-        if self.is_complete():
-            if callback:
-                callback(self.board)
+        # =================================================================
+        # NEW ITERATIVE IMPLEMENTATION (Using Loops)
+        # =================================================================
+        
+        # 1. Collect all empty cells first
+        empty_cells = []
+        for r in range(9):
+            for c in range(9):
+                if self.board[r][c] == 0:
+                    empty_cells.append((r, c))
+        
+        if not empty_cells:
+            if callback: callback(self.board)
             return True
+            
+        i = 0
+        while 0 <= i < len(empty_cells):
+            row, col = empty_cells[i]
+            
+            # Find the next valid number greater than current cell value
+            current_val = self.board[row][col]
+            found_next_num = False
+            
+            for num in range(current_val + 1, 10):
+                if self.is_valid(row, col, num):
+                    self.board[row][col] = num
+                    found_next_num = True
+                    if callback: callback(self.board)
+                    i += 1  # Move to next cell
+                    break
+            
+            if not found_next_num:
+                # Backtrack
+                self.board[row][col] = 0
+                if callback: callback(self.board)
+                i -= 1  # Move back to previous cell
         
-        empty = self.find_empty_cell()
-        if empty is None:
-            if callback:
-                callback(self.board)
-            return self.is_complete()
-        
-        row, col = empty
-        
-        # Try each number 1-9
-        for num in range(1, 10):
-            if self.is_valid(row, col, num):
-                # IMPERATIVE: Direct state mutation
-                self.board[row][col] = num  # Modify existing state
-                if callback:
-                    callback(self.board)
-                
-                # Recursive call - state persists (shared mutable state)
-                if self.solve_sudoku(callback):
-                    return True
-                
-                # IMPERATIVE: Backtrack by mutating state back
-                self.board[row][col] = 0  # Direct mutation for backtracking
-                if callback:
-                    callback(self.board)
-        
-        return False
+        return i == len(empty_cells)
+
+        # =================================================================
+        # OLD RECURSIVE IMPLEMENTATION (Commented Out)
+        # =================================================================
+        # if self.is_complete():
+        #     if callback:
+        #         callback(self.board)
+        #     return True
+        # 
+        # empty = self.find_empty_cell()
+        # if empty is None:
+        #     if callback:
+        #         callback(self.board)
+        #     return self.is_complete()
+        # 
+        # row, col = empty
+        # 
+        # # Try each number 1-9
+        # for num in range(1, 10):
+        #     if self.is_valid(row, col, num):
+        #         # IMPERATIVE: Direct state mutation
+        #         self.board[row][col] = num  # Modify existing state
+        #         if callback:
+        #             callback(self.board)
+        #         
+        #         # Recursive call - state persists (shared mutable state)
+        #         if self.solve_sudoku(callback):
+        #             return True
+        #         
+        #         # IMPERATIVE: Backtrack by mutating state back
+        #         self.board[row][col] = 0  # Direct mutation for backtracking
+        #         if callback:
+        #             callback(self.board)
+        # 
+        # return False
 
     def play(self):
         print("Welcome to Sudoku!")
