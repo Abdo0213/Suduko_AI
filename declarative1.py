@@ -20,35 +20,69 @@ Grid = List[List[int]]
 # ============================================
 def print_board(board: Grid) -> None:
     print("\nCurrent Board:")
-    for i in range(9):
+    
+    def print_cells(i: int, j: int) -> None:
+        if j == 9:
+            print()
+            return
+        
+        if j % 3 == 0 and j != 0:
+            print("|", end=" ")
+        
+        print(board[i][j] if board[i][j] != 0 else ".", end=" ")
+        print_cells(i, j + 1)
+
+    def print_rows(i: int) -> None:
+        if i == 9:
+            return
+            
         if i % 3 == 0 and i != 0:
             print("-" * 21)
-        for j in range(9):
-            if j % 3 == 0 and j != 0:
-                print("|", end=" ")
-            print(board[i][j] if board[i][j] != 0 else ".", end=" ")
-        print()
+            
+        print_cells(i, 0)
+        print_rows(i + 1)
+
+    print_rows(0)
 
 
 def is_valid(board: Grid, row: int, col: int, num: int) -> bool:
     if num in board[row]:
         return False
 
-    if num in (board[i][col] for i in range(9)):
+    def check_col(i: int) -> bool:
+        if i == 9:
+            return True
+        if board[i][col] == num:
+            return False
+        return check_col(i + 1)
+    
+    if not check_col(0):
         return False
 
     box_row = row // 3 * 3
     box_col = col // 3 * 3
-    for i in range(box_row, box_row + 3):
-        for j in range(box_col, box_col + 3):
-            if board[i][j] == num:
-                return False
+    
+    def check_box(i: int, j: int) -> bool:
+        if i == box_row + 3:
+            return True
+        if j == box_col + 3:
+            return check_box(i + 1, box_col)
+        
+        if board[i][j] == num:
+            return False
+        return check_box(i, j + 1)
 
-    return True
+    return check_box(box_row, box_col)
 
 
 def is_complete(board: Grid) -> bool:
-    return all(0 not in row for row in board)
+    def check_rows(i: int) -> bool:
+        if i == 9:
+            return True
+        if 0 in board[i]:
+            return False
+        return check_rows(i + 1)
+    return check_rows(0)
 
 
 def apply_move(board: Grid, row: int, col: int, num: int) -> Optional[Grid]:
@@ -65,18 +99,36 @@ def apply_move(board: Grid, row: int, col: int, num: int) -> Optional[Grid]:
         return None
 
     # Create new board (immutability) - original board unchanged
-    new_board = [r[:] for r in board]  # Deep copy
-    new_board[row][col] = num
-    return new_board  # Return new state, not modified original
+    # Create new board (immutability) - original board unchanged
+    def build_new_row(r_idx: int, c_idx: int) -> List[int]:
+        if c_idx == 9:
+            return []
+        if r_idx == row and c_idx == col:
+            return [num] + build_new_row(r_idx, c_idx + 1)
+        return [board[r_idx][c_idx]] + build_new_row(r_idx, c_idx + 1)
+
+    def build_board(r_idx: int) -> Grid:
+        if r_idx == 9:
+             return []
+        # Construct new row recursively
+        new_row = build_new_row(r_idx, 0)
+        return [new_row] + build_board(r_idx + 1)
+
+    return build_board(0)
 
 
 def find_empty_cell(board: Grid) -> Optional[Tuple[int, int]]:
     """Pure function to find the next empty cell (returns immutable tuple)"""
-    for i in range(9):
-        for j in range(9):
-            if board[i][j] == 0:
-                return (i, j)
-    return None
+    def search(i: int, j: int) -> Optional[Tuple[int, int]]:
+        if i == 9:
+            return None
+        if j == 9:
+            return search(i + 1, 0)
+        
+        if board[i][j] == 0:
+            return (i, j)
+        return search(i, j + 1)
+    return search(0, 0)
 
 
 def solve_sudoku(board: Grid, callback=None) -> Optional[Grid]:
@@ -105,8 +157,10 @@ def solve_sudoku(board: Grid, callback=None) -> Optional[Grid]:
     
     row, col = empty
     
-    # Try each number 1-9
-    for num in range(1, 10):
+    def try_num(num: int) -> Optional[Grid]:
+        if num == 10:
+            return None
+
         # Functional approach: Create new state, don't modify existing
         new_board = apply_move(board, row, col, num)
         if new_board is not None:
@@ -116,9 +170,10 @@ def solve_sudoku(board: Grid, callback=None) -> Optional[Grid]:
             result = solve_sudoku(new_board, callback)
             if result is not None:
                 return result  # Return new solved board
+        
+        return try_num(num + 1)
     
-    # Backtracking in functional style: return None, previous call tries next number
-    return None
+    return try_num(1)
 
 # ============================================
 # GAME LOOP - Functional State Replacement
@@ -131,14 +186,12 @@ def play(board: Grid) -> None:
     Game loop demonstrating functional state management.
     State is replaced, not modified (immutability principle).
     """
-    state = board  # Initial state
-
     print("Declarative Sudoku")
     print("Enter: row col number (1–9)")
     print("Example: 1 3 4")
     print("Type: 0 0 0 to exit")
 
-    while True:
+    def game_loop(state: Grid) -> None:
         print_board(state)
 
         if is_complete(state):
@@ -146,10 +199,11 @@ def play(board: Grid) -> None:
             return
 
         try:
-            row, col, num = map(int, input("\nYour move: ").split())
+            inp = input("\nYour move: ").split()
+            row, col, num = map(int, inp)
         except ValueError:
             print("Invalid input format")
-            continue
+            return game_loop(state)
 
         if (row, col, num) == (0, 0, 0):
             print("Game ended")
@@ -157,16 +211,20 @@ def play(board: Grid) -> None:
 
         if not (1 <= row <= 9 and 1 <= col <= 9 and 1 <= num <= 9):
             print("Values must be between 1 and 9")
-            continue
+            return game_loop(state)
 
         # Functional approach: Get new state, replace old one
         new_state = apply_move(state, row - 1, col - 1, num)
 
         if new_state is None:
             print("Invalid move!")
+            return game_loop(state)
         else:
             print("Correct move!")
-            state = new_state  # Replace state (functional style)
+            # Replace state (functional style) - recursive call with new state
+            return game_loop(new_state)
+
+    game_loop(board)
 
 
 
